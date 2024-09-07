@@ -26,17 +26,7 @@ const App = (state) => {
         <main>
             ${Greeting(store.user.name)}
             <section>
-                <h3>Put things on the page!</h3>
-                <p>Here is an example section.</p>
-                <p>
-                    One of the most popular websites at NASA is the Astronomy Picture of the Day. In fact, this website is one of
-                    the most popular websites across all federal agencies. It has the popular appeal of a Justin Bieber video.
-                    This endpoint structures the APOD imagery and associated metadata so that it can be repurposed for other
-                    applications. In addition, if the concept_tags parameter is set to True, then keywords derived from the image
-                    explanation are returned. These keywords could be used as auto-generated hashtags for twitter or instagram feeds;
-                    but generally help with discoverability of relevant imagery.
-                </p>
-                ${ImageOfTheDay(apod)}
+                ${TabRovers(rovers)}
             </section>
         </main>
         <footer></footer>
@@ -45,7 +35,7 @@ const App = (state) => {
 
 // listening for load event because page should load before any JS is called
 window.addEventListener('load', () => {
-    render(root, store)
+    render(root, store);
 })
 
 // ------------------------------------------------------  COMPONENTS
@@ -84,11 +74,78 @@ const ImageOfTheDay = (apod) => {
             <p>${apod.explanation}</p>
         `)
     } else {
-        return (`
-            <img src="${apod.image.url}" height="350px" width="100%" />
-            <p>${apod.image.explanation}</p>
-        `)
+        // Fix in case apod or apod.image are undefined
+        if (apod && apod.image && apod.image.url) {
+            return (`
+                <img src="${apod.image.url}" height="350px" width="100%" />
+                <p>${apod.image.explanation}</p>
+            `)
+        }
     }
+}
+
+const TabRovers = (rovers) => {
+    let result = `<div class="tab">`;
+
+    // Append buttons tab for each item in rovers array
+     for (let i = 0; i < rovers.length; i++) {
+        result = result.concat(roverTabBtn(rovers[i]));
+     }
+
+     // Close the <div> buttons tag
+     result = result.concat(`</div>`);
+
+     // Append a Rover component for each item in rovers item
+     for (let i = 0; i < rovers.length; i++) {
+        result = result.concat(Rover(rovers[i]));
+     }
+
+    return result;
+}
+
+const roverTabBtn = (rover) => {
+    return `<button class="tablinks" onclick="openTab(event)">${rover}</button>`;
+}
+
+const Rover = (rover) => {
+    return (`
+        <div id="${rover}" class="tabcontent">
+            <h3>${rover}</h3>
+            <p>Content for ${rover}:</p>
+            <div id="${rover + '-content'}"></div>
+        </div>
+        `);
+}
+
+const openTab = (evt) => {
+    let tabcontent, tablinks;
+
+    // Get all elements with class="tabcontent" and hide them
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (let i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+
+    // Get all elements with class="tablinks" and remove the class "active"
+    tablinks = document.getElementsByClassName("tablinks");
+    for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(evt.currentTarget.textContent).style.display = "block";
+    evt.currentTarget.className += " active";
+
+    // Show Information on the tab
+    generateInformation(evt.currentTarget.textContent);
+}
+
+const generateInformation = (rover) => {
+    // Get photos first
+    getPhotos(rover).then((photos) => {
+        console.log(photos);
+    });
+
 }
 
 // ------------------------------------------------------  API CALLS
@@ -97,9 +154,15 @@ const ImageOfTheDay = (apod) => {
 const getImageOfTheDay = (state) => {
     let { apod } = state
 
-    fetch(`https://r950324c957034xreactr0lcusuk-3000.udacity-student-workspaces.com/apod`)
+    fetch(`http://localhost:3000/apod`)
         .then(res => res.json())
         .then(apod => updateStore(store, { apod }))
 
-    return data
+    // return data
+}
+
+const getPhotos = (rover) => {
+    return fetch(`http://localhost:3000/rovers?rover=${rover}`)
+        .then(res => res.json())
+        .then(photos => {return photos});
 }
