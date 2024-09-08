@@ -2,6 +2,8 @@ let store = {
     user: { name: "Student" },
     apod: '',
     rovers: ['Curiosity', 'Opportunity', 'Spirit'],
+    photos: [],
+    selectedRover: '',
 }
 
 // add our markup to the page
@@ -19,14 +21,18 @@ const render = async (root, state) => {
 
 // create content
 const App = (state) => {
-    let { rovers, apod } = state
+    let { rovers, apod, selectedRover } = state
+
+    if (!selectedRover) {
+        updateStore(state, { selectedRover: rovers[0] });
+    }
 
     return `
         <header></header>
         <main>
             ${Greeting(store.user.name)}
             <section>
-                ${TabRovers(rovers)}
+                ${TabRovers(store, roverTabBtn)}
             </section>
         </main>
         <footer></footer>
@@ -36,6 +42,8 @@ const App = (state) => {
 // listening for load event because page should load before any JS is called
 window.addEventListener('load', () => {
     render(root, store);
+    // For the 1st time, click the 1st button
+    document.getElementById(store.selectedRover + '-btn').click();
 })
 
 // ------------------------------------------------------  COMPONENTS
@@ -84,8 +92,9 @@ const ImageOfTheDay = (apod) => {
     }
 }
 
-const TabRovers = (rovers) => {
+const TabRovers = (state, roverTabBtn) => {
     let result = `<div class="tab">`;
+    let { rovers } = state;
 
     // Append buttons tab for each item in rovers array
      for (let i = 0; i < rovers.length; i++) {
@@ -95,36 +104,50 @@ const TabRovers = (rovers) => {
      // Close the <div> buttons tag
      result = result.concat(`</div>`);
 
-     // Append a Rover component for each item in rovers item
-     for (let i = 0; i < rovers.length; i++) {
-        result = result.concat(Rover(rovers[i]));
-     }
+    // Rover content
+    if (state.selectedRover) {
+        result = result.concat(Rover(state.selectedRover));
+    }
 
     return result;
 }
 
 const roverTabBtn = (rover) => {
-    return `<button class="tablinks" onclick="openTab(event)">${rover}</button>`;
+    return `<button id="${rover + '-btn'}" class="tablinks ${(rover === store.selectedRover) ? 'active' : ''}" onclick="openTab(event)">${rover}</button>`;
 }
 
 const Rover = (rover) => {
+
     return (`
-        <div id="${rover}" class="tabcontent">
+        <div id="rover" class="tabcontent">
             <h3>${rover}</h3>
-            <p>Content for ${rover}:</p>
-            <div id="${rover + '-content'}"></div>
+            <div id="rover-content" class="row">${Images(convertImageToDiv)}</div>
         </div>
         `);
 }
 
-const openTab = (evt) => {
-    let tabcontent, tablinks;
+const Images = (convertImageToDiv) => {
+    const images = Immutable.List(store.photos.photos).map(image => convertImageToDiv(image));
 
-    // Get all elements with class="tabcontent" and hide them
-    tabcontent = document.getElementsByClassName("tabcontent");
-    for (let i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-    }
+    return images.join('');
+}
+
+const convertImageToDiv = (image) => {
+    return (`
+        <div class="col-12 col-sm-6 col-md-4 mb-4">
+            <div class="image-container">
+                <img src="${image.img_src}" alt="${image.id}">
+                <div class="overlay">Launch Date: ${image.rover.launch_date}</div>
+                <div class="overlay">Landing Date: ${image.rover.landing_date}</div>
+                <div class="overlay">Status: ${image.rover.status}</div>
+                <div class="overlay">Most recent taken photos: ${image.rover.max_date}</div>
+            </div>
+        </div>
+    `);
+}
+
+const openTab = (evt) => {
+    let tablinks;
 
     // Get all elements with class="tablinks" and remove the class "active"
     tablinks = document.getElementsByClassName("tablinks");
@@ -133,8 +156,9 @@ const openTab = (evt) => {
     }
 
     // Show the current tab, and add an "active" class to the button that opened the tab
-    document.getElementById(evt.currentTarget.textContent).style.display = "block";
     evt.currentTarget.className += " active";
+    // Regenerate content of rover div
+    document.getElementById("rover").innerHTML = `<div><h3>Loading...</h3></div>`;
 
     // Show Information on the tab
     generateInformation(evt.currentTarget.textContent);
@@ -142,8 +166,8 @@ const openTab = (evt) => {
 
 const generateInformation = (rover) => {
     // Get photos first
-    getPhotos(rover).then((photos) => {
-        console.log(photos);
+    getPhotos(rover).then((data) => {
+        updateStore(store, { photos: data.photos, selectedRover: rover });
     });
 
 }
@@ -161,7 +185,7 @@ const getImageOfTheDay = (state) => {
     // return data
 }
 
-const getPhotos = (rover) => {
+const getPhotos = async (rover) => {
     return fetch(`http://localhost:3000/rovers?rover=${rover}`)
         .then(res => res.json())
         .then(photos => {return photos});
